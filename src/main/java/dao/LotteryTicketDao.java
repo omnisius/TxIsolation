@@ -8,7 +8,7 @@ public interface LotteryTicketDao {
 
     void create(String ticket);
 
-    void setBuyerId(String buyerId);
+    LotteryTicket getTicketForBuyer(String buyerId);
 
     List<LotteryTicket> getAllTickets();
 }
