@@ -6,10 +6,8 @@ import java.sql.*;
 
 public class ConnectionManager {
     private static final Logger LOG = Logger.getLogger(ConnectionManager.class);
-    private static final String COM_MYSQL_JDBC_DRIVER = "com.mysql.jdbc.Driver";
-    private static final String DATABASE_CONNECTION_URL = "jdbc:mysql://localhost/lottery?user=root&password=root";
     private static ConnectionManager instance;
-    private Connection connection = null;
+    private ConnectionPool connectionPool = new ConnectionPool();
 
     public static ConnectionManager getInstance(){
         if (instance == null) {
@@ -22,14 +20,11 @@ public class ConnectionManager {
 
     public Connection getConnection(){
         try {
-            Class.forName(COM_MYSQL_JDBC_DRIVER);
-            if (connection == null)
-                connection = DriverManager.getConnection(DATABASE_CONNECTION_URL);
-
-        } catch (ClassNotFoundException | SQLException e) {
+            return connectionPool.getConnection();
+        } catch (SQLException e) {
             LOG.error(e);
+            throw new RuntimeException();
         }
-        return connection;
     }
 
     public void disconnect(Connection connection, ResultSet resultSet, Statement statement) {

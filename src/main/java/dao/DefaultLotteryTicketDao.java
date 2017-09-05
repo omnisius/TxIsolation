@@ -12,6 +12,7 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
     private static final Logger LOG = Logger.getLogger(DefaultLotteryTicketDao.class);
     private static LotteryTicketDao instance;
 
+
     public static LotteryTicketDao getInstance(){
         if (instance == null) {
             instance = new DefaultLotteryTicketDao();
@@ -21,31 +22,35 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
         }
     }
 
-    public void create(String buyerId) {
+    public void createLotteryTickets(int quantity) {
         PreparedStatement statement = null;
+        Connection connection = getConnection();
         try {
-            statement = getConnection().prepareStatement("INSERT INTO lottery.ticket (number, buyer) VALUES (?, NULL)");
-            statement.setString(1, buyerId);
-            statement.executeUpdate();
+            statement = connection.prepareStatement("INSERT INTO lottery.tickets (number, buyer) VALUES (?, NULL)");
+            for (int i = 1; i < quantity; i++) {
+                statement.setString(1, "OCM-" + i);
+                statement.addBatch();
+            }
+            statement.executeBatch();
         } catch (SQLException e) {
             LOG.error(e);
         } finally {
-            disconnect(getConnection(), null, statement);
+            disconnect(connection, null, statement);
         }
     }
 
     public LotteryTicket getTicketForBuyer(String buyerId) {
         PreparedStatement preparedStatement = null;
+        Connection connection = getConnection();
         Statement statement = null;
         ResultSet resultSet = null;
         try {
             LotteryTicket lotteryTicket = new LotteryTicket();
-            Connection connection = getConnection();
             connection.setAutoCommit(false);
             statement = connection.createStatement();
-            resultSet = statement.executeQuery("SELECT number FROM lottery.tickets WHERE buyer is NULL LIMIT 1");
+            resultSet = statement.executeQuery("SELECT * FROM lottery.tickets WHERE buyer is NULL LIMIT 1");
             while (resultSet.next()) {
-                lotteryTicket.setNumber(resultSet.getCursorName());
+                lotteryTicket.setNumber(resultSet.getString("number"));
                 lotteryTicket.setBuyerId(buyerId);
             }
             statement.close();
@@ -58,17 +63,18 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
             LOG.error(e);
             throw new RuntimeException();
         } finally {
-            disconnect(getConnection(), resultSet, preparedStatement);
+            disconnect(connection, resultSet, preparedStatement);
         }
     }
 
     public List<LotteryTicket> getAllTickets() {
         List<LotteryTicket> lotteryTickets = new LinkedList<>();
+        Connection connection = getConnection();
         Statement statement = null;
         ResultSet resultSet = null;
         try {
-            statement = getConnection().createStatement();
-            resultSet = statement.executeQuery("SELECT * FROM lottery.ticket");
+            statement = connection.createStatement();
+            resultSet = statement.executeQuery("SELECT * FROM lottery.tickets");
             LotteryTicket lotteryTicket;
             while (resultSet.next()) {
                 lotteryTicket = new LotteryTicket();
@@ -79,10 +85,24 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
         } catch (SQLException e) {
             LOG.error(e);
         } finally {
-            disconnect(getConnection(), resultSet, statement);
+            disconnect(connection, resultSet, statement);
         }
         LOG.info(lotteryTickets);
         return lotteryTickets;
+    }
+
+    @Override
+    public void deleteAllTickets() {
+        Statement statement = null;
+        Connection connection = getConnection();
+        try {
+            statement = connection.createStatement();
+            statement.executeUpdate("DELETE FROM lottery.tickets");
+        } catch (SQLException e) {
+            LOG.error(e);
+        } finally {
+            disconnect(connection, null, statement);
+        }
     }
 
     private void disconnect(Connection connection, ResultSet resultSet, Statement statement) {
