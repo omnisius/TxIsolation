@@ -1,4 +1,3 @@
-import dao.DefaultLotteryTicketDao;
 import model.LotteryTicket;
 import org.apache.log4j.Logger;
 import service.DefaultLotteryTicketService;
@@ -12,7 +11,6 @@ import java.util.concurrent.Executors;
 public class LotteryRunner {
     private static final int TICKETS_QUANTITY = 100;
     private static final int BUYERS_QUANTITY = 50;
-    private static ConcurrentHashMap<String, String> lotteryTicketsMap;
     private static final Logger LOG = Logger.getLogger(LotteryRunner.class);
 
     public static void main(String[] args) {
@@ -20,11 +18,11 @@ public class LotteryRunner {
         getLotteryService().createTickets(TICKETS_QUANTITY);
 
         final ExecutorService lottery = Executors.newFixedThreadPool(BUYERS_QUANTITY);
-        lotteryTicketsMap = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, String> lotteryTicketsMap = new ConcurrentHashMap<>();
         for (int i = 0; i <= BUYERS_QUANTITY; i++) {
             int buyerNumber = i;
             lottery.execute(() -> {
-                while(true) {
+                while(getLotteryService().areThereTicketsToBuy()) {
                     LotteryTicket ticket = getLotteryService().buy("Buyer-" + buyerNumber);
                     lotteryTicketsMap.put(ticket.getNumber(), ticket.getBuyerId());
                 }
@@ -32,7 +30,7 @@ public class LotteryRunner {
         }
         List<LotteryTicket> ticketsFromDb = getLotteryService().getAllTicketsFromDB();
         for (LotteryTicket ticket : ticketsFromDb) {
-            if (lotteryTicketsMap.get(lotteryTicketsMap.get(ticket.getNumber())).equals(ticket.getBuyerId())) {
+            if (!lotteryTicketsMap.get(ticket.getNumber()).equals(ticket.getBuyerId())) {
                 LOG.info("Difference is for ticket " + ticket.getNumber());
             }
         }

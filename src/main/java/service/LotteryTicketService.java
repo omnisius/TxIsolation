@@ -14,4 +14,6 @@ public interface LotteryTicketService {
 
     List<LotteryTicket> getAllTicketsFromDB();
 
+    boolean areThereTicketsToBuy();
+
 }

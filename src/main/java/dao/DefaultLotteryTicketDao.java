@@ -105,6 +105,23 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
         }
     }
 
+    @Override
+    public boolean areThereTicketsToBuy() {
+        Connection connection = getConnection();
+        Statement statement = null;
+        ResultSet resultSet = null;
+        try {
+            statement = connection.createStatement();
+            resultSet = statement.executeQuery("SELECT * FROM lottery.tickets WHERE buyer is NULL");
+            return resultSet.next();
+        } catch (SQLException e) {
+            LOG.error(e);
+            return true;
+        } finally {
+            disconnect(connection, resultSet, statement);
+        }
+    }
+
     private void disconnect(Connection connection, ResultSet resultSet, Statement statement) {
         ConnectionManager.getInstance().disconnect(connection, resultSet, statement);
     }

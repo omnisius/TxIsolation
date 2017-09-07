@@ -39,6 +39,11 @@ public class DefaultLotteryTicketService implements LotteryTicketService {
         return getDao().getAllTickets();
     }
 
+    @Override
+    public boolean areThereTicketsToBuy() {
+        return getDao().areThereTicketsToBuy();
+    }
+
     private LotteryTicketDao getDao() {
         return DefaultLotteryTicketDao.getInstance();
     }

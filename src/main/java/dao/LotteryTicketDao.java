@@ -13,4 +13,6 @@ public interface LotteryTicketDao {
     List<LotteryTicket> getAllTickets();
 
     void deleteAllTickets();
+
+    boolean areThereTicketsToBuy();
 }
