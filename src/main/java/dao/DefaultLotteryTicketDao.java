@@ -11,11 +11,19 @@ import java.util.List;
 public class DefaultLotteryTicketDao implements LotteryTicketDao {
     private static final Logger LOG = Logger.getLogger(DefaultLotteryTicketDao.class);
     private static LotteryTicketDao instance;
+    private static Connection connection;
 
 
     public static LotteryTicketDao getInstance(){
         if (instance == null) {
             instance = new DefaultLotteryTicketDao();
+            connection = getConnection();
+            try {
+                connection.setAutoCommit(false);
+                connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
             return instance;
         } else {
             return instance;
@@ -24,7 +32,6 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
 
     public void createLotteryTickets(int quantity) {
         PreparedStatement statement = null;
-        Connection connection = getConnection();
         try {
             statement = connection.prepareStatement("INSERT INTO lottery.tickets (number, buyer) VALUES (?, NULL)");
             for (int i = 1; i < quantity; i++) {
@@ -35,41 +42,54 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
         } catch (SQLException e) {
             LOG.error(e);
         } finally {
-            disconnect(connection, null, statement);
+            disconnect(null, null, statement);
         }
     }
 
     public LotteryTicket getTicketForBuyer(String buyerId) {
         PreparedStatement preparedStatement = null;
-        Connection connection = getConnection();
         Statement statement = null;
         ResultSet resultSet = null;
         try {
             LotteryTicket lotteryTicket = new LotteryTicket();
-            connection.setAutoCommit(false);
-            statement = connection.createStatement();
-            resultSet = statement.executeQuery("SELECT * FROM lottery.tickets WHERE buyer is NULL LIMIT 1");
-            while (resultSet.next()) {
+            long id = 0;
+            statement = connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+            resultSet = statement.executeQuery("SELECT * FROM lottery.tickets WHERE buyer is NULL LIMIT 1 FOR UPDATE");
+            if (resultSet.first()) {
+                id = resultSet.getLong("id");
                 lotteryTicket.setNumber(resultSet.getString("number"));
                 lotteryTicket.setBuyerId(buyerId);
+
+                preparedStatement = connection.prepareStatement("UPDATE lottery.tickets SET buyer=? WHERE id = ?",
+                        ResultSet.TYPE_FORWARD_ONLY,
+                        ResultSet.CONCUR_UPDATABLE);
+                preparedStatement.setString(1, buyerId);
+                preparedStatement.setLong(2, id);
+                preparedStatement.executeUpdate();
+                connection.commit();
+                return lotteryTicket;
             }
-            statement.close();
-            preparedStatement = connection.prepareStatement("UPDATE lottery.tickets SET buyer=? WHERE buyer is NULL LIMIT 1");
-            preparedStatement.setString(1, buyerId);
-            preparedStatement.executeUpdate();
-            connection.commit();
-            return lotteryTicket;
+            return null;
         } catch (SQLException e) {
             LOG.error(e);
-            throw new RuntimeException();
+            try {
+                connection.rollback();
+            } catch (SQLException e1) {
+                LOG.error(e);
+            }
+            return null;
         } finally {
-            disconnect(connection, resultSet, preparedStatement);
+            try {
+                statement.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            disconnect(null, resultSet, preparedStatement);
         }
     }
 
     public List<LotteryTicket> getAllTickets() {
         List<LotteryTicket> lotteryTickets = new LinkedList<>();
-        Connection connection = getConnection();
         Statement statement = null;
         ResultSet resultSet = null;
         try {
@@ -94,20 +114,18 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
     @Override
     public void deleteAllTickets() {
         Statement statement = null;
-        Connection connection = getConnection();
         try {
             statement = connection.createStatement();
-            statement.executeUpdate("DELETE FROM lottery.tickets");
+            statement.executeUpdate("TRUNCATE TABLE lottery.tickets");
         } catch (SQLException e) {
             LOG.error(e);
         } finally {
-            disconnect(connection, null, statement);
+            disconnect(null, null, statement);
         }
     }
 
     @Override
     public boolean areThereTicketsToBuy() {
-        Connection connection = getConnection();
         Statement statement = null;
         ResultSet resultSet = null;
         try {
@@ -118,7 +136,7 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
             LOG.error(e);
             return true;
         } finally {
-            disconnect(connection, resultSet, statement);
+            disconnect(null, resultSet, statement);
         }
     }
 
@@ -126,7 +144,7 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
         ConnectionManager.getInstance().disconnect(connection, resultSet, statement);
     }
 
-    private Connection getConnection() {
+    private static Connection getConnection() {
         return ConnectionManager.getInstance().getConnection();
     }
 }

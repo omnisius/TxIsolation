@@ -30,7 +30,7 @@ class ConnectionPool {
     }
 
     Connection getConnection() throws SQLException {
-        if (connectionBusyQueue.size() < 100000) {
+        if (connectionBusyQueue.size() < Integer.MAX_VALUE) {
             if (connectionFreeQueue.isEmpty()) {
                 Connection connection = DriverManager.getConnection(DATABASE_CONNECTION_URL);
                 connectionFreeQueue.add(connection);
