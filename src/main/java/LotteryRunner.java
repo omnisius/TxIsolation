@@ -10,7 +10,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class LotteryRunner {
-    private static final int TICKETS_QUANTITY = 100;
+    private static final int TICKETS_QUANTITY = 10000;
     private static final int BUYERS_QUANTITY = 50;
     private static final Logger LOG = Logger.getLogger(LotteryRunner.class);
 
@@ -31,7 +31,7 @@ public class LotteryRunner {
                 differenceCounter++;
             }
         }
-        LOG.warn("The quantity of differ tickets is " + differenceCounter + ". Tickets sold " + lotteryTicketsMap.size());
+        LOG.warn("The quantity of differ tickets is " + differenceCounter + ". Tickets sold " + (lotteryTicketsMap.size() + 1));
     }
 
     private static ConcurrentHashMap<String, String> holdLottery() {
@@ -66,7 +66,7 @@ public class LotteryRunner {
     private static void buyTicketsInLottery(ConcurrentHashMap<String, String> lotteryTicketsMap, int buyerNumber) {
         while(getLotteryService().areThereTicketsToBuy()) {
             LotteryTicket ticket = getLotteryService().buy("Buyer-" + buyerNumber);
-            if (ticket != null && ticket.getBuyerId() != null) {
+            if (ticket != null && ticket.getBuyerId() != null && !lotteryTicketsMap.containsKey(ticket.getNumber()) ) {
                 lotteryTicketsMap.put(ticket.getNumber(), ticket.getBuyerId());
             }
         }

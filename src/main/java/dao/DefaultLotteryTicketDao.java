@@ -19,10 +19,10 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
             instance = new DefaultLotteryTicketDao();
             connection = getConnection();
             try {
-                connection.setAutoCommit(false);
-                connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+                connection.setAutoCommit(true);
+                connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
             } catch (SQLException e) {
-                e.printStackTrace();
+               LOG.error(e);
             }
             return instance;
         } else {
@@ -52,25 +52,29 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
         ResultSet resultSet = null;
         try {
             LotteryTicket lotteryTicket = new LotteryTicket();
-            long id = 0;
-            statement = connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+            long id;
+            connection.setAutoCommit(false);
+            statement = connection.createStatement();
             resultSet = statement.executeQuery("SELECT * FROM lottery.tickets WHERE buyer is NULL LIMIT 1 FOR UPDATE");
+            statement.close();
             if (resultSet.first()) {
                 id = resultSet.getLong("id");
                 lotteryTicket.setNumber(resultSet.getString("number"));
                 lotteryTicket.setBuyerId(buyerId);
 
-                preparedStatement = connection.prepareStatement("UPDATE lottery.tickets SET buyer=? WHERE id = ?",
-                        ResultSet.TYPE_FORWARD_ONLY,
-                        ResultSet.CONCUR_UPDATABLE);
+                preparedStatement = connection.prepareStatement("UPDATE lottery.tickets SET buyer=? WHERE id = ? and buyer is NULL");
                 preparedStatement.setString(1, buyerId);
                 preparedStatement.setLong(2, id);
-                preparedStatement.executeUpdate();
-                connection.commit();
-                return lotteryTicket;
+                if (preparedStatement.executeUpdate() == 1) {
+                    connection.commit();
+                    return lotteryTicket;
+                } else {
+                    connection.rollback();
+                    return null;
+                }
             }
             return null;
-        } catch (SQLException e) {
+        } catch (Exception e) {
             LOG.error(e);
             try {
                 connection.rollback();
@@ -79,11 +83,6 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
             }
             return null;
         } finally {
-            try {
-                statement.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
             disconnect(null, resultSet, preparedStatement);
         }
     }
