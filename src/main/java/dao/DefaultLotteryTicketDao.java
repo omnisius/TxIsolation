@@ -20,7 +20,7 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
             connection = getConnection();
             try {
                 connection.setAutoCommit(true);
-                connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+                connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
             } catch (SQLException e) {
                LOG.error(e);
             }
@@ -56,7 +56,6 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
             connection.setAutoCommit(false);
             statement = connection.createStatement();
             resultSet = statement.executeQuery("SELECT * FROM lottery.tickets WHERE buyer is NULL LIMIT 1 FOR UPDATE");
-            statement.close();
             if (resultSet.first()) {
                 id = resultSet.getLong("id");
                 lotteryTicket.setNumber(resultSet.getString("number"));
@@ -83,6 +82,11 @@ public class DefaultLotteryTicketDao implements LotteryTicketDao {
             }
             return null;
         } finally {
+            try {
+                statement.close();
+            } catch (SQLException e) {
+                LOG.error(e);
+            }
             disconnect(null, resultSet, preparedStatement);
         }
     }
